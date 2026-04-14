@@ -1,0 +1,143 @@
+    <script>
+        function showPage(id) {
+            document.getElementById('menu').style.display = 'none';
+            document.getElementById('caesarPage').style.display = 'none';
+            document.getElementById('hillPage').style.display = 'none';
+            document.getElementById(id).style.display = 'block';
+        }
+
+        // --- CAESAR LOGIC ---
+        function runCaesar() {
+            let plain = document.getElementById('cPlain').value;
+            let key = parseInt(document.getElementById('cKey').value);
+
+            // Encryption
+            let ciph = "";
+            for (let char of plain) {
+                if (/[a-zA-Z]/.test(char)) {
+                    let start = char === char.toUpperCase() ? 65 : 97;
+                    ciph += String.fromCharCode(((char.charCodeAt(0) - start + key) % 26 + 26) % 26 + start);
+                } else { ciph += char; }
+            }
+
+            // Decryption
+            let decry = "";
+            for (let char of ciph) {
+                if (/[a-zA-Z]/.test(char)) {
+                    let start = char === char.toUpperCase() ? 65 : 97;
+                    decry += String.fromCharCode(((char.charCodeAt(0) - start - key) % 26 + 26) % 26 + start);
+                } else { decry += char; }
+            }
+            document.getElementById('cResult1').innerText = ciph;
+            document.getElementById('cResult2').innerText = decry;
+        }
+
+        // --- HILL LOGIC ---
+        const charToNum = (c) => c.charCodeAt(0) - 65;
+        const numToChar = (n) => String.fromCharCode(n + 65);
+
+        function multiplyMatrix(vector, matrix, n) {
+            let result = [];
+            for (let col = 0; col < n; col++) {
+                let total = 0;
+                for (let row = 0; row < n; row++) {
+                    total += vector[row] * matrix[row][col];
+                }
+                result.push(((total % 26) + 26) % 26);
+            }
+            return result;
+        }
+
+        function modInverse(det) {
+            det = ((det % 26) + 26) % 26;
+            for (let i = 0; i < 26; i++) {
+                if ((det * i) % 26 === 1) return i;
+            }
+            return -1;
+        }
+
+        function determinant(mat, n) {
+            if (n === 1) return mat[0][0];
+            let det = 0;
+            for (let col = 0; col < n; col++) {
+                let sub = [];
+                for (let i = 1; i < n; i++) {
+                    let row = [];
+                    for (let j = 0; j < n; j++) {
+                        if (j !== col) row.push(mat[i][j]);
+                    }
+                    sub.push(row);
+                }
+                det += Math.pow(-1, col) * mat[0][col] * determinant(sub, n - 1);
+            }
+            return det;
+        }
+
+        function inverseMatrix(matrix, n) {
+            let det = determinant(matrix, n);
+            let detInv = modInverse(det);
+            if (detInv === -1) { alert("Matrix not invertible"); return null; }
+
+            let cofactors = [];
+            for (let r = 0; r < n; r++) {
+                let row = [];
+                for (let c = 0; c < n; c++) {
+                    let sub = [];
+                    for (let i = 0; i < n; i++) {
+                        if (i !== r) {
+                            let subRow = [];
+                            for (let j = 0; j < n; j++) {
+                                if (j !== c) subRow.push(matrix[i][j]);
+                            }
+                            sub.push(subRow);
+                        }
+                    }
+                    let val = Math.pow(-1, r + c) * determinant(sub, n - 1);
+                    row.push(((val % 26) + 26) % 26);
+                }
+                cofactors.push(row);
+            }
+
+            let inverse = [];
+            for (let i = 0; i < n; i++) {
+                let row = [];
+                for (let j = 0; j < n; j++) {
+                    row.push((cofactors[j][i] * detInv) % 26);
+                }
+                inverse.push(row);
+            }
+            return inverse;
+        }
+
+        function runHill() {
+            let n = parseInt(document.getElementById('hN').value);
+            let rawMat = document.getElementById('hMatrix').value.split(/\s+/).map(Number);
+            let key = [];
+            for (let i = 0; i < n; i++) key.push(rawMat.slice(i * n, (i + 1) * n));
+
+            let plaintext = document.getElementById('hPlain').value.toUpperCase().replace(/[^A-Z]/g, '');
+            while (plaintext.length % n !== 0) plaintext += 'X';
+
+            // Encrypt
+            let cipher = "";
+            for (let i = 0; i < plaintext.length; i += n) {
+                let block = [];
+                for (let j = 0; j < n; j++) block.push(charToNum(plaintext[i + j]));
+                let encrypted = multiplyMatrix(block, key, n);
+                encrypted.forEach(num => cipher += numToChar(num));
+            }
+
+            // Decrypt
+            let invKey = inverseMatrix(key, n);
+            let original = "";
+            if (invKey) {
+                for (let i = 0; i < cipher.length; i += n) {
+                    let block = [];
+                    for (let j = 0; j < n; j++) block.push(charToNum(cipher[i + j]));
+                    let decrypted = multiplyMatrix(block, invKey, n);
+                    decrypted.forEach(num => original += numToChar(num));
+                }
+            }
+
+            document.getElementById('hResult1').innerText = cipher;
+            document.getElementById('hResult2').innerText = original;
